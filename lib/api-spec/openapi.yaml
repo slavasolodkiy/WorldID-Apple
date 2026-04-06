@@ -1,22 +1,37 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: World App API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: users
+    description: User management
+  - name: wallet
+    description: Wallet and token operations
+  - name: transactions
+    description: Transaction history
+  - name: verification
+    description: World ID verification
+  - name: apps
+    description: World Chain dApps ecosystem
+  - name: contacts
+    description: Contacts management
+  - name: notifications
+    description: Notifications
+  - name: stats
+    description: Dashboard stats
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +39,338 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    patch:
+      operationId: updateMe
+      tags: [users]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserBody"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /wallet:
+    get:
+      operationId: getWallet
+      tags: [wallet]
+      summary: Get wallet balances and info
+      responses:
+        "200":
+          description: Wallet info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+
+  /wallet/tokens:
+    get:
+      operationId: listTokens
+      tags: [wallet]
+      summary: List all token balances
+      responses:
+        "200":
+          description: Token list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Token"
+
+  /transactions:
+    get:
+      operationId: listTransactions
+      tags: [transactions]
+      summary: List transactions
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [send, receive, grant, swap]
+      responses:
+        "200":
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+    post:
+      operationId: createTransaction
+      tags: [transactions]
+      summary: Create a new transaction (send)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionBody"
+      responses:
+        "201":
+          description: Created transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+
+  /transactions/{id}:
+    get:
+      operationId: getTransaction
+      tags: [transactions]
+      summary: Get a transaction by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+
+  /verification/status:
+    get:
+      operationId: getVerificationStatus
+      tags: [verification]
+      summary: Get World ID verification status
+      responses:
+        "200":
+          description: Verification status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationStatus"
+
+  /verification/initiate:
+    post:
+      operationId: initiateVerification
+      tags: [verification]
+      summary: Initiate Orb verification session
+      responses:
+        "200":
+          description: Verification session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationSession"
+
+  /verification/complete:
+    post:
+      operationId: completeVerification
+      tags: [verification]
+      summary: Complete Orb verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteVerificationBody"
+      responses:
+        "200":
+          description: Updated verification status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationStatus"
+
+  /apps:
+    get:
+      operationId: listApps
+      tags: [apps]
+      summary: List World Chain dApps
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [all, defi, social, gaming, nft, utility]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Apps list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/App"
+
+  /apps/{id}:
+    get:
+      operationId: getApp
+      tags: [apps]
+      summary: Get a specific app
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: App detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/App"
+
+  /apps/featured:
+    get:
+      operationId: getFeaturedApps
+      tags: [apps]
+      summary: Get featured apps and categories
+      responses:
+        "200":
+          description: Featured apps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeaturedApps"
+
+  /contacts:
+    get:
+      operationId: listContacts
+      tags: [contacts]
+      summary: List contacts
+      responses:
+        "200":
+          description: Contact list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Contact"
+    post:
+      operationId: createContact
+      tags: [contacts]
+      summary: Add a contact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContactBody"
+      responses:
+        "201":
+          description: Created contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications
+      responses:
+        "200":
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+
+  /stats/dashboard:
+    get:
+      operationId: getDashboardStats
+      tags: [stats]
+      summary: Get dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /stats/token-prices:
+    get:
+      operationId: getTokenPrices
+      tags: [stats]
+      summary: Get token price chart data
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [1d, 1w, 1m, 3m, 1y]
+            default: 1w
+      responses:
+        "200":
+          description: Price chart data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceChart"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +378,357 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        worldId:
+          type: string
+          nullable: true
+        verificationLevel:
+          type: string
+          enum: [none, device, orb]
+        walletAddress:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        isVerified:
+          type: boolean
+        country:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+      required: [id, username, displayName, verificationLevel, walletAddress, createdAt, isVerified]
+
+    UpdateUserBody:
+      type: object
+      properties:
+        displayName:
+          type: string
+        bio:
+          type: string
+        country:
+          type: string
+
+    Wallet:
+      type: object
+      properties:
+        address:
+          type: string
+        totalBalanceUsd:
+          type: number
+        wldBalance:
+          type: string
+        usdcBalance:
+          type: string
+        ethBalance:
+          type: string
+        pendingGrants:
+          type: number
+        nextGrantDate:
+          type: string
+          format: date-time
+          nullable: true
+      required: [address, totalBalanceUsd, wldBalance, usdcBalance, ethBalance, pendingGrants]
+
+    Token:
+      type: object
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        balance:
+          type: string
+        balanceUsd:
+          type: number
+        price:
+          type: number
+        priceChange24h:
+          type: number
+        iconUrl:
+          type: string
+          nullable: true
+        contractAddress:
+          type: string
+          nullable: true
+      required: [symbol, name, balance, balanceUsd, price, priceChange24h]
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [send, receive, grant, swap]
+        status:
+          type: string
+          enum: [pending, completed, failed]
+        amount:
+          type: string
+        amountUsd:
+          type: number
+        tokenSymbol:
+          type: string
+        fromAddress:
+          type: string
+          nullable: true
+        toAddress:
+          type: string
+          nullable: true
+        fromUsername:
+          type: string
+          nullable: true
+        toUsername:
+          type: string
+          nullable: true
+        txHash:
+          type: string
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, type, status, amount, amountUsd, tokenSymbol, createdAt]
+
+    CreateTransactionBody:
+      type: object
+      properties:
+        toAddress:
+          type: string
+        toUsername:
+          type: string
+        amount:
+          type: string
+        tokenSymbol:
+          type: string
+        note:
+          type: string
+      required: [amount, tokenSymbol]
+
+    VerificationStatus:
+      type: object
+      properties:
+        level:
+          type: string
+          enum: [none, device, orb]
+        isVerified:
+          type: boolean
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        nullifierHash:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        canClaimGrant:
+          type: boolean
+      required: [level, isVerified, canClaimGrant]
+
+    VerificationSession:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        qrCode:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, scanning, processing, complete, failed]
+      required: [sessionId, qrCode, expiresAt, status]
+
+    CompleteVerificationBody:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        proof:
+          type: string
+        nullifierHash:
+          type: string
+      required: [sessionId]
+
+    App:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        iconUrl:
+          type: string
+          nullable: true
+        category:
+          type: string
+          enum: [defi, social, gaming, nft, utility]
+        url:
+          type: string
+        isVerified:
+          type: boolean
+        isFeatured:
+          type: boolean
+        userCount:
+          type: integer
+        rating:
+          type: number
+          nullable: true
+        requiresWorldId:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+      required: [id, name, description, category, url, isVerified, isFeatured, userCount, requiresWorldId, tags]
+
+    FeaturedApps:
+      type: object
+      properties:
+        featured:
+          type: array
+          items:
+            $ref: "#/components/schemas/App"
+        categories:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              slug:
+                type: string
+              count:
+                type: integer
+            required: [name, slug, count]
+        trending:
+          type: array
+          items:
+            $ref: "#/components/schemas/App"
+      required: [featured, categories, trending]
+
+    Contact:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        walletAddress:
+          type: string
+        isVerified:
+          type: boolean
+        verificationLevel:
+          type: string
+          enum: [none, device, orb]
+        lastTransactionAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [id, username, displayName, walletAddress, isVerified, verificationLevel]
+
+    CreateContactBody:
+      type: object
+      properties:
+        username:
+          type: string
+        walletAddress:
+          type: string
+      required: [username]
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [transaction, grant, verification, app, system]
+        title:
+          type: string
+        body:
+          type: string
+        isRead:
+          type: boolean
+        data:
+          type: object
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, type, title, body, isRead, createdAt]
+
+    DashboardStats:
+      type: object
+      properties:
+        totalValueUsd:
+          type: number
+        wldBalance:
+          type: string
+        verifiedUsers:
+          type: integer
+        grantsClaimed:
+          type: integer
+        recentTransactionCount:
+          type: integer
+        unreadNotifications:
+          type: integer
+        wldPriceUsd:
+          type: number
+        wldPriceChange24h:
+          type: number
+      required: [totalValueUsd, wldBalance, verifiedUsers, grantsClaimed, recentTransactionCount, unreadNotifications, wldPriceUsd, wldPriceChange24h]
+
+    PriceChart:
+      type: object
+      properties:
+        symbol:
+          type: string
+        period:
+          type: string
+        currentPrice:
+          type: number
+        priceChange:
+          type: number
+        priceChangePercent:
+          type: number
+        dataPoints:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              price:
+                type: number
+            required: [timestamp, price]
+      required: [symbol, period, currentPrice, priceChange, priceChangePercent, dataPoints]
