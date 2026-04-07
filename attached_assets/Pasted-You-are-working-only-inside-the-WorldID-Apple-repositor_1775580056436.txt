@@ -1,0 +1,65 @@
+You are working only inside the WorldID-Apple repository.
+
+If /reports/final-audit.md exists, read it first and use it as context. If it does not exist, infer from the codebase directly.
+
+Start with a plan, then implement in small checkpoints.
+
+Objective:
+Upgrade this repository from a product replica/demo into a reusable, production-leaning Apple-app foundation, without redesigning the visible UI.
+
+Main goals:
+1. Remove demo/single-user assumptions.
+2. Strengthen auth/session boundaries and ownership checks.
+3. Harden wallet, verification, and transaction correctness.
+4. Improve data reliability, tests, and handoff quality.
+
+Tasks:
+1. Create or improve these files:
+   - README.md
+   - AGENTS.md (only if missing)
+   - docs/architecture.md
+   - docs/domain-model.md
+   - docs/auth-session-model.md
+   - docs/verification-lifecycle.md
+   - .env.example
+2. Eliminate demo shortcuts:
+   - remove DEMO_USER_ID or similar hardcoded user assumptions
+   - replace single-user behavior with request-scoped user/session handling
+   - clearly document anything that remains mocked
+3. Implement or strengthen authorization:
+   - enforce ownership checks on all user-scoped data and endpoints
+   - ensure unauthorized access paths are handled explicitly
+4. Harden transaction correctness:
+   - amount validation
+   - sufficient-balance checks
+   - atomic writes where applicable
+   - idempotency protection where practical
+   - explicit failure states
+5. Harden verification lifecycle:
+   - valid session requirement
+   - expiry handling
+   - state transitions
+   - proof/session linkage rules
+6. Improve data and repo reliability:
+   - use precise money representation
+   - add or improve constraints/migrations/seeds where relevant
+   - add integration tests for authz, verification, and transactions
+   - add CI for typecheck/build/tests
+7. Produce a final report:
+   - docs/reuse-readiness-report.md
+   - include implemented vs partial vs missing
+   - include security/correctness risks still open
+   - include the next best prompt for another iteration
+
+Constraints:
+- Do not redesign visible UI.
+- Preserve route/screen structure where possible.
+- Do not add major dependencies unless justified.
+- Do not keep secrets or credentials in source.
+- Do not generate misleading claims that this is an official Apple/World ID product.
+- Prefer minimal, high-leverage refactors over broad rewrites.
+
+Output requirements:
+- First show the implementation plan.
+- Then implement.
+- End with a concise changelog and a readiness delta.

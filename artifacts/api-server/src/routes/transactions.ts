@@ -12,9 +12,22 @@ import { randomUUID } from "crypto";
 
 const router: IRouter = Router();
 
-const DEMO_USER_ID = "user_demo_001";
+const ALLOWED_TOKENS = new Set(["WLD", "USDC", "ETH"]);
+
+const PRICE_MAP: Record<string, number> = {
+  WLD: 2.34,
+  USDC: 1.0,
+  ETH: 3254.0,
+};
+
+const BALANCE_FIELD: Record<string, "wldBalance" | "usdcBalance" | "ethBalance"> = {
+  WLD: "wldBalance",
+  USDC: "usdcBalance",
+  ETH: "ethBalance",
+};
 
 router.get("/transactions", async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
   const params = ListTransactionsQueryParams.safeParse(req.query);
   const limit = params.success ? (params.data.limit ?? 20) : 20;
   const offset = params.success ? (params.data.offset ?? 0) : 0;
@@ -26,20 +39,28 @@ router.get("/transactions", async (req, res): Promise<void> => {
     .where(
       typeFilter
         ? and(
-            eq(transactionsTable.userId, DEMO_USER_ID),
+            eq(transactionsTable.userId, userId),
             eq(transactionsTable.type, typeFilter as "send" | "receive" | "grant" | "swap")
           )
-        : eq(transactionsTable.userId, DEMO_USER_ID)
+        : eq(transactionsTable.userId, userId)
     )
     .orderBy(desc(transactionsTable.createdAt))
     .limit(limit)
     .offset(offset);
 
   const txs = await query;
-  res.json(ListTransactionsResponse.parse(txs));
+  res.json(ListTransactionsResponse.parse(txs.map((t) => ({
+    ...t,
+    amountUsd: parseFloat(t.amountUsd),
+  }))));
 });
 
 router.post("/transactions", async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
+  const idempotencyKey = typeof req.headers["idempotency-key"] === "string"
+    ? req.headers["idempotency-key"]
+    : null;
+
   const parsed = CreateTransactionBody.safeParse(req.body);
   if (!parsed.success) {
     req.log.warn({ errors: parsed.error.message }, "Invalid create transaction body");
@@ -49,39 +70,103 @@ router.post("/transactions", async (req, res): Promise<void> => {
 
   const { toAddress, toUsername, amount, tokenSymbol, note } = parsed.data;
 
-  const [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, DEMO_USER_ID));
-  if (!wallet) {
-    res.status(404).json({ error: "Wallet not found" });
+  if (!ALLOWED_TOKENS.has(tokenSymbol)) {
+    res.status(400).json({ error: `Unsupported token: ${tokenSymbol}` });
     return;
   }
 
-  const priceMap: Record<string, number> = { WLD: 2.34, USDC: 1.0, ETH: 3254.0 };
-  const price = priceMap[tokenSymbol] ?? 1.0;
-  const amountUsd = parseFloat(amount) * price;
+  const amountNum = parseFloat(amount);
+  if (isNaN(amountNum) || amountNum <= 0) {
+    res.status(400).json({ error: "Amount must be a positive number" });
+    return;
+  }
 
-  const [tx] = await db
-    .insert(transactionsTable)
-    .values({
-      id: `tx_${randomUUID()}`,
-      userId: DEMO_USER_ID,
-      type: "send",
-      status: "completed",
-      amount,
-      amountUsd: amountUsd.toFixed(4),
-      tokenSymbol,
-      fromAddress: wallet.address,
-      toAddress: toAddress ?? null,
-      fromUsername: "demo.world",
-      toUsername: toUsername ?? null,
-      note: note ?? null,
-      txHash: `0x${randomUUID().replace(/-/g, "")}`,
-    })
-    .returning();
+  if (idempotencyKey) {
+    const [existing] = await db
+      .select()
+      .from(transactionsTable)
+      .where(
+        and(
+          eq(transactionsTable.userId, userId),
+          eq(transactionsTable.idempotencyKey, idempotencyKey)
+        )
+      );
+    if (existing) {
+      res.status(200).json(GetTransactionResponse.parse({
+        ...existing,
+        amountUsd: parseFloat(existing.amountUsd),
+      }));
+      return;
+    }
+  }
 
-  res.status(201).json(GetTransactionResponse.parse(tx));
+  try {
+    const tx = await db.transaction(async (trx) => {
+      const balanceCol = BALANCE_FIELD[tokenSymbol]!;
+
+      const [wallet] = await trx
+        .select()
+        .from(walletsTable)
+        .where(eq(walletsTable.userId, userId));
+
+      if (!wallet) {
+        throw new InsufficientBalanceError("Wallet not found");
+      }
+
+      const currentBalance = parseFloat(wallet[balanceCol] as string);
+      if (isNaN(currentBalance) || currentBalance < amountNum) {
+        throw new InsufficientBalanceError(`Insufficient ${tokenSymbol} balance`);
+      }
+
+      const newBalance = (currentBalance - amountNum).toFixed(8);
+
+      await trx
+        .update(walletsTable)
+        .set({ [balanceCol]: newBalance })
+        .where(eq(walletsTable.userId, userId));
+
+      const price = PRICE_MAP[tokenSymbol] ?? 1.0;
+      const amountUsd = (amountNum * price).toFixed(4);
+
+      const [newTx] = await trx
+        .insert(transactionsTable)
+        .values({
+          id: `tx_${randomUUID()}`,
+          userId,
+          type: "send",
+          status: "completed",
+          amount,
+          amountUsd,
+          tokenSymbol,
+          fromAddress: wallet.address,
+          toAddress: toAddress ?? null,
+          fromUsername: null,
+          toUsername: toUsername ?? null,
+          note: note ?? null,
+          txHash: `0x${randomUUID().replace(/-/g, "")}`,
+          idempotencyKey,
+        })
+        .returning();
+
+      return newTx!;
+    });
+
+    res.status(201).json(GetTransactionResponse.parse({
+      ...tx,
+      amountUsd: parseFloat(tx.amountUsd),
+    }));
+  } catch (err) {
+    if (err instanceof InsufficientBalanceError) {
+      res.status(422).json({ error: err.message });
+      return;
+    }
+    req.log.error({ err }, "Unexpected error creating transaction");
+    throw err;
+  }
 });
 
 router.get("/transactions/:id", async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetTransactionParams.safeParse({ id: raw });
   if (!params.success) {
@@ -92,14 +177,29 @@ router.get("/transactions/:id", async (req, res): Promise<void> => {
   const [tx] = await db
     .select()
     .from(transactionsTable)
-    .where(eq(transactionsTable.id, params.data.id));
+    .where(
+      and(
+        eq(transactionsTable.id, params.data.id),
+        eq(transactionsTable.userId, userId)
+      )
+    );
 
   if (!tx) {
     res.status(404).json({ error: "Transaction not found" });
     return;
   }
 
-  res.json(GetTransactionResponse.parse(tx));
+  res.json(GetTransactionResponse.parse({
+    ...tx,
+    amountUsd: parseFloat(tx.amountUsd),
+  }));
 });
+
+class InsufficientBalanceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InsufficientBalanceError";
+  }
+}
 
 export default router;

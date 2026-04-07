@@ -5,11 +5,10 @@ import { GetDashboardStatsResponse, GetTokenPricesQueryParams, GetTokenPricesRes
 
 const router: IRouter = Router();
 
-const DEMO_USER_ID = "user_demo_001";
-
 router.get("/stats/dashboard", async (req, res): Promise<void> => {
-  const [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, DEMO_USER_ID));
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, DEMO_USER_ID));
+  const userId = req.session.userId!;
+  const [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, userId));
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
 
   const wldPrice = 2.34;
   const wldPriceChange24h = 3.12;
@@ -28,7 +27,7 @@ router.get("/stats/dashboard", async (req, res): Promise<void> => {
   const txCountResult = await db
     .select({ count: count() })
     .from(transactionsTable)
-    .where(eq(transactionsTable.userId, DEMO_USER_ID));
+    .where(eq(transactionsTable.userId, userId));
 
   const grantCount = await db
     .select({ count: count() })

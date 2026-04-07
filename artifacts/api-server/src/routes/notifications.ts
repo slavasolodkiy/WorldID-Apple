@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, notificationsTable } from "@workspace/db";
 import {
   ListNotificationsResponse,
@@ -9,19 +9,19 @@ import {
 
 const router: IRouter = Router();
 
-const DEMO_USER_ID = "user_demo_001";
-
 router.get("/notifications", async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
   const notifications = await db
     .select()
     .from(notificationsTable)
-    .where(eq(notificationsTable.userId, DEMO_USER_ID))
+    .where(eq(notificationsTable.userId, userId))
     .orderBy(notificationsTable.createdAt);
 
   res.json(ListNotificationsResponse.parse(notifications));
 });
 
 router.patch("/notifications/:id/read", async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = MarkNotificationReadParams.safeParse({ id: raw });
   if (!params.success) {
@@ -32,7 +32,7 @@ router.patch("/notifications/:id/read", async (req, res): Promise<void> => {
   const [notification] = await db
     .update(notificationsTable)
     .set({ isRead: true })
-    .where(eq(notificationsTable.id, params.data.id))
+    .where(and(eq(notificationsTable.id, params.data.id), eq(notificationsTable.userId, userId)))
     .returning();
 
   if (!notification) {

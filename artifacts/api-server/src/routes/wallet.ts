@@ -5,10 +5,9 @@ import { GetWalletResponse, ListTokensResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
-const DEMO_USER_ID = "user_demo_001";
-
 router.get("/wallet", async (req, res): Promise<void> => {
-  const [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, DEMO_USER_ID));
+  const userId = req.session.userId!;
+  const [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, userId));
   if (!wallet) {
     res.status(404).json({ error: "Wallet not found" });
     return;
@@ -31,7 +30,8 @@ router.get("/wallet", async (req, res): Promise<void> => {
 });
 
 router.get("/wallet/tokens", async (req, res): Promise<void> => {
-  const [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, DEMO_USER_ID));
+  const userId = req.session.userId!;
+  const [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, userId));
   if (!wallet) {
     res.json(ListTokensResponse.parse([]));
     return;

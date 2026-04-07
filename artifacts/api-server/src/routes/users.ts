@@ -5,10 +5,9 @@ import { GetMeResponse, UpdateMeBody, UpdateMeResponse } from "@workspace/api-zo
 
 const router: IRouter = Router();
 
-const DEMO_USER_ID = "user_demo_001";
-
 router.get("/users/me", async (req, res): Promise<void> => {
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, DEMO_USER_ID));
+  const userId = req.session.userId!;
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;
@@ -17,6 +16,7 @@ router.get("/users/me", async (req, res): Promise<void> => {
 });
 
 router.patch("/users/me", async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
   const parsed = UpdateMeBody.safeParse(req.body);
   if (!parsed.success) {
     req.log.warn({ errors: parsed.error.message }, "Invalid update user body");
@@ -27,7 +27,7 @@ router.patch("/users/me", async (req, res): Promise<void> => {
   const [user] = await db
     .update(usersTable)
     .set(parsed.data)
-    .where(eq(usersTable.id, DEMO_USER_ID))
+    .where(eq(usersTable.id, userId))
     .returning();
 
   if (!user) {

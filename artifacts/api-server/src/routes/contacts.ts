@@ -9,13 +9,12 @@ import { randomUUID } from "crypto";
 
 const router: IRouter = Router();
 
-const DEMO_USER_ID = "user_demo_001";
-
 router.get("/contacts", async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
   const contacts = await db
     .select()
     .from(contactsTable)
-    .where(eq(contactsTable.userId, DEMO_USER_ID));
+    .where(eq(contactsTable.userId, userId));
 
   const mapped = contacts.map((c) => ({
     id: c.id,
@@ -32,6 +31,7 @@ router.get("/contacts", async (req, res): Promise<void> => {
 });
 
 router.post("/contacts", async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
   const parsed = CreateContactBody.safeParse(req.body);
   if (!parsed.success) {
     req.log.warn({ errors: parsed.error.message }, "Invalid create contact body");
@@ -43,7 +43,7 @@ router.post("/contacts", async (req, res): Promise<void> => {
     .insert(contactsTable)
     .values({
       id: `contact_${randomUUID()}`,
-      userId: DEMO_USER_ID,
+      userId,
       contactUsername: parsed.data.username,
       contactDisplayName: parsed.data.username,
       contactWalletAddress: parsed.data.walletAddress ?? `0x${randomUUID().replace(/-/g, "").slice(0, 40)}`,

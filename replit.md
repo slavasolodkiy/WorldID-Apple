@@ -37,6 +37,17 @@ A mobile-first (max-width 430px) web application replicating the World App:
 - Dark mode enabled (near-black background, cyan #00D4FF primary accent)
 - Demo user pre-seeded: alex.world (ORB verified, $3,500 portfolio)
 
+## Security Hardening (completed)
+
+- **Session auth**: `express-session` + `connect-pg-simple` (PostgreSQL session store), `SESSION_SECRET` required at startup
+- **Auth routes**: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+- **`requireAuth` middleware**: applied globally after public routes; returns 401 if no session
+- **No DEMO_USER_ID**: all routes use `req.session.userId!`
+- **Idempotency**: `idempotency_key` column + `uq_transactions_user_idempotency` unique constraint; POST /api/transactions deduplicates via `Idempotency-Key` header
+- **Ledger-safe transactions**: wallet balance updated inside a DB transaction with explicit select → check → update (avoiding data races)
+- **DB indexes**: 7 indexes covering user_id on all user-scoped tables + transactions.created_at
+- **Integration tests**: 26/26 pass (`pnpm --filter @workspace/api-server run test`)
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages
@@ -44,6 +55,7 @@ A mobile-first (max-width 430px) web application replicating the World App:
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
+- `pnpm --filter @workspace/api-server run test` — run 26 integration tests
 - `pnpm --filter @workspace/scripts run seed` — re-seed demo data
 
 ## Database Schema
