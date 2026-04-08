@@ -1,0 +1,44 @@
+Work only in WorldID-Apple. Fix the remaining hard correctness issues without UI redesign.
+
+Targets (must all pass):
+1) Remove demo auto-login:
+- In artifacts/world-app/src/providers/AuthProvider.tsx, delete fallback POST /api/auth/login with username "alex.world".
+- Keep only session check via /api/auth/me and expose unauthenticated state cleanly.
+
+2) Add auth contract and regenerate:
+- Add /auth/login, /auth/logout, /auth/me to lib/api-spec/openapi.yaml.
+- Regenerate lib/api-zod and lib/api-client-react outputs.
+- Update callsites to use generated client/hooks where applicable.
+
+3) Verification hardening:
+- In artifacts/api-server/src/routes/verification.ts require proof in /verification/complete body.
+- Enforce proof + sessionId + session ownership linkage (user-scoped) and reject if missing/invalid.
+- Remove synthetic nullifier fallback generation when proof is absent.
+- Wrap all writes in a single DB transaction: session->processing, verifications upsert, users update, session->complete.
+
+4) Transaction concurrency safety:
+- In artifacts/api-server/src/routes/transactions.ts make debit atomic under concurrency.
+- Use a conditional update (balance >= amount) or row lock strategy to prevent double-spend races.
+- Keep idempotency key behavior and add tests for concurrent sends + duplicate idempotency requests.
+
+5) Fix logout cookie mismatch:
+- In artifacts/api-server/src/routes/auth.ts clear the same cookie name configured in app.ts ("world.sid").
+
+6) Fully user-scope stats:
+- In artifacts/api-server/src/routes/stats.ts scope grantCount and unreadResult to req.session.userId.
+
+7) Add CI and migration workflow:
+- Add .github/workflows/ci.yml running install, typecheck, and api-server tests.
+- In lib/db/package.json add migration scripts (generate/migrate) and commit migration files under lib/db/migrations.
+- Do not rely only on drizzle push.
+
+8) Make checks pass:
+- Fix artifacts/world-app/src/pages/verify.tsx type error at mutateAsync call.
+- Resolve current test startup issue so `corepack pnpm --filter @workspace/api-server run test` runs in CI and local.
+
+Acceptance criteria:
+- `corepack pnpm run typecheck:libs` passes
+- `corepack pnpm --filter @workspace/world-app run typecheck` passes
+- `corepack pnpm --filter @workspace/api-server run test` passes
+- auth routes exist in OpenAPI and regenerated clients/schemas include them
+- provide file-by-file diff summary and command outputs

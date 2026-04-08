@@ -16,7 +16,7 @@ export default function Verify() {
   const handleVerify = async () => {
     setIsScanning(true);
     try {
-      const session = await initiateVerif.mutateAsync({});
+      const session = await initiateVerif.mutateAsync();
       // Simulate orb scanning delay
       await new Promise(r => setTimeout(r, 2000));
       // proof is a required field; in a real app this would be the ZKP from the Orb device
