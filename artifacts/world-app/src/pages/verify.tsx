@@ -19,8 +19,10 @@ export default function Verify() {
       const session = await initiateVerif.mutateAsync({});
       // Simulate orb scanning delay
       await new Promise(r => setTimeout(r, 2000));
-      await completeVerif.mutateAsync({ 
-        data: { sessionId: session.sessionId }
+      // proof is a required field; in a real app this would be the ZKP from the Orb device
+      const simulatedProof = `sim_proof_${session.sessionId}_${Date.now()}`;
+      await completeVerif.mutateAsync({
+        data: { sessionId: session.sessionId, proof: simulatedProof },
       });
       refetch();
     } catch (e) {

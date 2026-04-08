@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { createHash } from "crypto";
 import request from "supertest";
 import app from "../app.js";
 import { db } from "@workspace/db";
@@ -29,16 +30,24 @@ describe("Verification Lifecycle", () => {
 
   it("rejects completion with no sessionId", async () => {
     const res = await agentA.post("/api/verification/complete").send({
-      nullifierHash: "some_hash",
+      proof: "some_proof",
     });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/sessionId/i);
   });
 
+  it("rejects completion with missing proof", async () => {
+    const res = await agentA.post("/api/verification/complete").send({
+      sessionId: "sess_nonexistent_00000",
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/proof/i);
+  });
+
   it("rejects completion with non-existent sessionId", async () => {
     const res = await agentA.post("/api/verification/complete").send({
       sessionId: "sess_nonexistent_00000",
-      nullifierHash: "some_hash",
+      proof: "some_valid_proof",
     });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/not found/i);
@@ -51,7 +60,7 @@ describe("Verification Lifecycle", () => {
 
     const res = await agentB.post("/api/verification/complete").send({
       sessionId,
-      nullifierHash: "attacker_hash",
+      proof: "attacker_proof",
     });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/not found/i);
@@ -68,7 +77,7 @@ describe("Verification Lifecycle", () => {
 
     const res = await agentA.post("/api/verification/complete").send({
       sessionId,
-      nullifierHash: "some_hash",
+      proof: "some_proof",
     });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/expired/i);
@@ -85,7 +94,7 @@ describe("Verification Lifecycle", () => {
 
     const res = await agentA.post("/api/verification/complete").send({
       sessionId,
-      nullifierHash: "some_hash",
+      proof: "some_proof",
     });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/processing/i);
@@ -104,14 +113,21 @@ describe("Verification Lifecycle", () => {
     expect(initiateRes.body.status).toBe("pending");
 
     const sessionId = initiateRes.body.sessionId;
+    const proof = "test_simulated_proof_abc123";
+
     const completeRes = await agentFresh.post("/api/verification/complete").send({
       sessionId,
-      nullifierHash: "test_nullifier_abc123",
+      proof,
     });
     expect(completeRes.status).toBe(200);
     expect(completeRes.body.isVerified).toBe(true);
     expect(completeRes.body.level).toBe("orb");
-    expect(completeRes.body.nullifierHash).toBe("test_nullifier_abc123");
+
+    // nullifierHash is deterministically derived from sessionId + proof
+    const expectedHash = createHash("sha256")
+      .update(`${sessionId}:${proof}`)
+      .digest("hex");
+    expect(completeRes.body.nullifierHash).toBe(expectedHash);
 
     const statusAfter = await agentFresh.get("/api/verification/status");
     expect(statusAfter.body.isVerified).toBe(true);

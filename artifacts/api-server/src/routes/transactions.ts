@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { db, transactionsTable, walletsTable } from "@workspace/db";
 import {
   ListTransactionsQueryParams,
@@ -104,16 +104,24 @@ router.post("/transactions", async (req, res): Promise<void> => {
     const tx = await db.transaction(async (trx) => {
       const balanceCol = BALANCE_FIELD[tokenSymbol]!;
 
-      const [wallet] = await trx
-        .select()
-        .from(walletsTable)
-        .where(eq(walletsTable.userId, userId));
+      // SELECT FOR UPDATE acquires a row-level lock, preventing concurrent
+      // double-spend from a second request racing this transaction.
+      const lockedRows = await trx.execute(
+        sql`SELECT * FROM wallets WHERE user_id = ${userId} FOR UPDATE`
+      );
+      const walletRow = lockedRows.rows[0] as Record<string, unknown> | undefined;
 
-      if (!wallet) {
+      if (!walletRow) {
         throw new InsufficientBalanceError("Wallet not found");
       }
 
-      const currentBalance = parseFloat(wallet[balanceCol] as string);
+      // Map camelCase field to snake_case DB column
+      const DB_COL: Record<string, string> = {
+        wldBalance: "wld_balance",
+        usdcBalance: "usdc_balance",
+        ethBalance: "eth_balance",
+      };
+      const currentBalance = parseFloat(walletRow[DB_COL[balanceCol]!] as string);
       if (isNaN(currentBalance) || currentBalance < amountNum) {
         throw new InsufficientBalanceError(`Insufficient ${tokenSymbol} balance`);
       }
@@ -138,7 +146,7 @@ router.post("/transactions", async (req, res): Promise<void> => {
           amount,
           amountUsd,
           tokenSymbol,
-          fromAddress: wallet.address,
+          fromAddress: (walletRow["address"] as string) ?? null,
           toAddress: toAddress ?? null,
           fromUsername: null,
           toUsername: toUsername ?? null,

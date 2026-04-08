@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, count } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { db, walletsTable, transactionsTable, notificationsTable, usersTable } from "@workspace/db";
 import { GetDashboardStatsResponse, GetTokenPricesQueryParams, GetTokenPricesResponse } from "@workspace/api-zod";
 
@@ -32,12 +32,22 @@ router.get("/stats/dashboard", async (req, res): Promise<void> => {
   const grantCount = await db
     .select({ count: count() })
     .from(transactionsTable)
-    .where(eq(transactionsTable.type, "grant"));
+    .where(
+      and(
+        eq(transactionsTable.userId, userId),
+        eq(transactionsTable.type, "grant")
+      )
+    );
 
   const unreadResult = await db
     .select({ count: count() })
     .from(notificationsTable)
-    .where(eq(notificationsTable.isRead, false));
+    .where(
+      and(
+        eq(notificationsTable.userId, userId),
+        eq(notificationsTable.isRead, false)
+      )
+    );
 
   res.json(
     GetDashboardStatsResponse.parse({

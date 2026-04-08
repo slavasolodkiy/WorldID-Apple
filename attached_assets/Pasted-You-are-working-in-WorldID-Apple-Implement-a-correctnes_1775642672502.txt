@@ -1,0 +1,43 @@
+You are working in WorldID-Apple. Implement a correctness-focused hardening pass with minimal refactoring.
+
+Priorities:
+1) Make auth real, not demo:
+- Remove hardcoded auto-login to alex.world from artifacts/world-app/src/providers/AuthProvider.tsx.
+- Keep session-cookie model, but require explicit login/logout UX and auth-state gating for protected screens.
+- Fix logout cookie clearing mismatch in artifacts/api-server/src/routes/auth.ts to match session cookie name in artifacts/api-server/src/app.ts.
+
+2) Restore contract-first consistency:
+- Add /auth/login, /auth/logout, /auth/me to lib/api-spec/openapi.yaml.
+- Regenerate API client and zod outputs and update affected callsites.
+
+3) Harden verification trust:
+- In artifacts/api-server/src/routes/verification.ts, require proof in complete verification input.
+- Validate proof/session/user linkage (at least enforce non-empty proof + correct session ownership + expiry + legal status transitions).
+- Perform all verification completion writes in one DB transaction.
+- Do not synthesize nullifierHash when proof is missing.
+
+4) Fix transaction correctness edge cases:
+- In artifacts/api-server/src/routes/transactions.ts, make debit logic concurrency-safe (no read-check-write race).
+- Preserve idempotency-key behavior.
+- Add tests for concurrent send requests and duplicate idempotency handling.
+
+5) Fix obvious scoping and reliability gaps:
+- User-scope grants/unread counts in artifacts/api-server/src/routes/stats.ts.
+- Fix frontend typecheck error in artifacts/world-app/src/pages/verify.tsx.
+- Add CI workflow (.github/workflows/ci.yml) running install, typecheck, and api-server tests.
+
+6) Data lifecycle:
+- Add versioned DB migrations under lib/db/migrations and update lib/db/package.json scripts for generate/migrate.
+- Keep scripts/src/seed.ts deterministic.
+
+Constraints:
+- No UI redesign.
+- Keep existing route/screen structure.
+- Prefer small, reusable changes over hacks.
+- Do not introduce major dependencies unless required.
+
+Deliverables:
+- File-by-file patch summary
+- Commands run with results
+- Explicit list of invariants now enforced
+- Remaining known risks (if any)

@@ -44,7 +44,7 @@ router.post("/auth/logout", (req, res): void => {
       res.status(500).json({ error: "Logout failed" });
       return;
     }
-    res.clearCookie("connect.sid");
+    res.clearCookie("world.sid");
     res.json({ ok: true });
   });
 });

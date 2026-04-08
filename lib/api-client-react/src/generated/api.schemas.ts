@@ -140,7 +140,8 @@ export interface VerificationSession {
 
 export interface CompleteVerificationBody {
   sessionId: string;
-  proof?: string;
+  /** @minLength 1 */
+  proof: string;
   nullifierHash?: string;
 }
 
@@ -252,6 +253,30 @@ export interface PriceChart {
   priceChange: number;
   priceChangePercent: number;
   dataPoints: PriceChartDataPointsItem[];
+}
+
+export interface LoginBody {
+  /**
+   * @minLength 1
+   * @maxLength 64
+   */
+  username: string;
+}
+
+export interface AuthResponse {
+  userId: string;
+  username: string;
+  displayName: string;
+}
+
+export interface AuthMeResponse {
+  userId: string | null;
+  username?: string | null;
+  displayName?: string | null;
+}
+
+export interface OkResponse {
+  ok: boolean;
 }
 
 export type ListTransactionsParams = {

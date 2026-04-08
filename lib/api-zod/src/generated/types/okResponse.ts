@@ -6,9 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CompleteVerificationBody {
-  sessionId: string;
-  /** @minLength 1 */
-  proof: string;
-  nullifierHash?: string;
+export interface OkResponse {
+  ok: boolean;
 }

@@ -7,6 +7,8 @@ servers:
   - url: /api
     description: Base API path
 tags:
+  - name: auth
+    description: Authentication
   - name: health
     description: Health operations
   - name: users
@@ -27,6 +29,55 @@ tags:
     description: Dashboard stats
 
 paths:
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with username
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Missing username
+        "401":
+          description: Unknown username
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Destroy session
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  /auth/me:
+    get:
+      operationId: getAuthMe
+      tags: [auth]
+      summary: Return current session user (or null if unauthenticated)
+      responses:
+        "200":
+          description: Current session info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMeResponse"
+
   /healthz:
     get:
       operationId: healthCheck
@@ -567,9 +618,10 @@ components:
           type: string
         proof:
           type: string
+          minLength: 1
         nullifierHash:
           type: string
-      required: [sessionId]
+      required: [sessionId, proof]
 
     App:
       type: object
@@ -732,3 +784,44 @@ components:
                 type: number
             required: [timestamp, price]
       required: [symbol, period, currentPrice, priceChange, priceChangePercent, dataPoints]
+
+    LoginBody:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 64
+      required: [username]
+
+    AuthResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: string
+      required: [userId, username, displayName]
+
+    AuthMeResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+      required: [userId]
+
+    OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required: [ok]

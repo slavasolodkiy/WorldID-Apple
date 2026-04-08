@@ -4,7 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { AuthProvider } from "@/providers/AuthProvider";
+import { AuthProvider, useAuth } from "@/providers/AuthProvider";
+import LoginPage from "@/pages/login";
 
 import Home from "@/pages/home";
 import Verify from "@/pages/verify";
@@ -18,6 +19,20 @@ import Notifications from "@/pages/notifications";
 const queryClient = new QueryClient();
 
 function Router() {
+  const { userId, isReady, login } = useAuth();
+
+  if (!isReady) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return <LoginPage onLogin={login} />;
+  }
+
   return (
     <AppLayout>
       <Switch>

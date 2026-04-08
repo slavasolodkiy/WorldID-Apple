@@ -1,54 +1,61 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 interface AuthState {
   userId: string | null;
   isReady: boolean;
+  login: (userId: string) => void;
+  logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthState>({ userId: null, isReady: false });
+const AuthContext = createContext<AuthState>({
+  userId: null,
+  isReady: false,
+  login: () => {},
+  logout: async () => {},
+});
 
 export function useAuth(): AuthState {
   return useContext(AuthContext);
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>({ userId: null, isReady: false });
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-    const bootstrap = async () => {
-      try {
-        const meRes = await fetch(`${base}/api/auth/me`, {
-          credentials: "include",
-        });
-        if (meRes.ok) {
-          const data = (await meRes.json()) as { userId: string | null };
-          if (data.userId) {
-            setState({ userId: data.userId, isReady: true });
-            return;
-          }
-        }
-
-        const loginRes = await fetch(`${base}/api/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ username: "alex.world" }),
-        });
-        if (loginRes.ok) {
-          const data = (await loginRes.json()) as { userId: string };
-          setState({ userId: data.userId, isReady: true });
-        } else {
-          setState({ userId: null, isReady: true });
-        }
-      } catch {
-        setState({ userId: null, isReady: true });
-      }
-    };
-
-    bootstrap();
+    fetch(`${base}/api/auth/me`, { credentials: "include" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ userId: string | null }>) : null))
+      .then((data) => {
+        setUserId(data?.userId ?? null);
+      })
+      .catch(() => {
+        setUserId(null);
+      })
+      .finally(() => {
+        setIsReady(true);
+      });
   }, []);
 
-  return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
+  const login = useCallback((id: string) => {
+    setUserId(id);
+  }, []);
+
+  const logout = useCallback(async () => {
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    try {
+      await fetch(`${base}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } finally {
+      setUserId(null);
+    }
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ userId, isReady, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }

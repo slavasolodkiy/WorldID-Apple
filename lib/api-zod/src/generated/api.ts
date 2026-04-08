@@ -8,6 +8,37 @@
 import * as zod from "zod";
 
 /**
+ * @summary Login with username
+ */
+export const loginBodyUsernameMax = 64;
+
+export const LoginBody = zod.object({
+  username: zod.string().min(1).max(loginBodyUsernameMax),
+});
+
+export const LoginResponse = zod.object({
+  userId: zod.string(),
+  username: zod.string(),
+  displayName: zod.string(),
+});
+
+/**
+ * @summary Destroy session
+ */
+export const LogoutResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Return current session user (or null if unauthenticated)
+ */
+export const GetAuthMeResponse = zod.object({
+  userId: zod.string().nullable(),
+  username: zod.string().nullish(),
+  displayName: zod.string().nullish(),
+});
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -170,9 +201,10 @@ export const InitiateVerificationResponse = zod.object({
 /**
  * @summary Complete Orb verification
  */
+
 export const CompleteVerificationBody = zod.object({
   sessionId: zod.string(),
-  proof: zod.string().optional(),
+  proof: zod.string().min(1),
   nullifierHash: zod.string().optional(),
 });
 

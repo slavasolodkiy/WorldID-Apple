@@ -108,6 +108,34 @@ describe("Transaction Invariants", () => {
     expect(res2.body.id).toBe(txId);
   });
 
+  it("concurrent sends cannot overdraft the wallet (SELECT FOR UPDATE)", async () => {
+    // Get the current WLD balance
+    const walletRes = await agent.get("/api/wallet");
+    const currentBalance = parseFloat(walletRes.body.wldBalance);
+
+    // Fire 5 concurrent sends of (currentBalance / 2) — only 2 should succeed
+    const sendAmount = (currentBalance / 2).toFixed(8);
+    const sends = Array.from({ length: 5 }, () =>
+      agent.post("/api/transactions").send({
+        amount: sendAmount,
+        tokenSymbol: "WLD",
+        toAddress: "0xConcurrentRecipient000000000000000000001",
+      })
+    );
+
+    const results = await Promise.all(sends);
+    const successes = results.filter((r) => r.status === 201);
+    const failures = results.filter((r) => r.status === 422);
+
+    // Exactly 2 should succeed, the rest must be rejected as insufficient
+    expect(successes.length).toBe(2);
+    expect(failures.length).toBe(3);
+
+    // Final balance must be >= 0
+    const finalWallet = await agent.get("/api/wallet");
+    expect(parseFloat(finalWallet.body.wldBalance)).toBeGreaterThanOrEqual(0);
+  });
+
   it("user cannot fetch another user's transaction by ID", async () => {
     const agentB = request.agent(app);
     const { seedTestUsers: _, cleanupTestUsers: __, TEST_USER_B } = await import("./setup.js");

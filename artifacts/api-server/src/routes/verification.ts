@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
+import { createHash } from "crypto";
 import { db, verificationsTable, verificationSessionsTable, usersTable } from "@workspace/db";
 import {
   GetVerificationStatusResponse,
@@ -10,11 +11,6 @@ import {
 import { randomUUID } from "crypto";
 
 const router: IRouter = Router();
-
-const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
-  pending: ["processing"],
-  processing: ["complete"],
-};
 
 router.get("/verification/status", async (req, res): Promise<void> => {
   const userId = req.session.userId!;
@@ -73,10 +69,10 @@ router.post("/verification/complete", async (req, res): Promise<void> => {
     return;
   }
 
-  const { sessionId } = parsed.data;
+  const { sessionId, proof } = parsed.data;
 
-  if (!sessionId) {
-    res.status(400).json({ error: "sessionId is required" });
+  if (!proof || proof.trim().length === 0) {
+    res.status(400).json({ error: "proof is required and must be non-empty" });
     return;
   }
 
@@ -101,62 +97,67 @@ router.post("/verification/complete", async (req, res): Promise<void> => {
   }
 
   if (verificationSession.status !== "pending") {
-    const allowed = ALLOWED_STATUS_TRANSITIONS[verificationSession.status] ?? [];
     res.status(400).json({
-      error: `Cannot complete verification session in status '${verificationSession.status}'. Allowed transitions: ${allowed.join(", ") || "none"}`,
+      error: `Cannot complete verification session in status '${verificationSession.status}'`,
     });
     return;
   }
 
-  await db
-    .update(verificationSessionsTable)
-    .set({ status: "processing" })
-    .where(eq(verificationSessionsTable.id, sessionId));
+  // Derive nullifierHash deterministically from the proof — never synthesize one
+  const nullifierHash = createHash("sha256")
+    .update(`${sessionId}:${proof}`)
+    .digest("hex");
 
-  const nullifierHash =
-    parsed.data.nullifierHash ?? `nullifier_${randomUUID().replace(/-/g, "")}`;
   const verifiedAt = new Date();
   const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
-  const [existing] = await db
-    .select()
-    .from(verificationsTable)
-    .where(eq(verificationsTable.userId, userId));
+  // All writes in a single transaction for atomicity
+  await db.transaction(async (trx) => {
+    await trx
+      .update(verificationSessionsTable)
+      .set({ status: "processing" })
+      .where(eq(verificationSessionsTable.id, sessionId));
 
-  if (existing) {
-    await db
-      .update(verificationsTable)
-      .set({
+    const [existing] = await trx
+      .select({ id: verificationsTable.id })
+      .from(verificationsTable)
+      .where(eq(verificationsTable.userId, userId));
+
+    if (existing) {
+      await trx
+        .update(verificationsTable)
+        .set({
+          level: "orb",
+          isVerified: true,
+          verifiedAt,
+          nullifierHash,
+          expiresAt,
+          canClaimGrant: true,
+        })
+        .where(eq(verificationsTable.userId, userId));
+    } else {
+      await trx.insert(verificationsTable).values({
+        id: `verif_${randomUUID()}`,
+        userId,
         level: "orb",
         isVerified: true,
         verifiedAt,
         nullifierHash,
         expiresAt,
         canClaimGrant: true,
-      })
-      .where(eq(verificationsTable.userId, userId));
-  } else {
-    await db.insert(verificationsTable).values({
-      id: `verif_${randomUUID()}`,
-      userId,
-      level: "orb",
-      isVerified: true,
-      verifiedAt,
-      nullifierHash,
-      expiresAt,
-      canClaimGrant: true,
-    });
-  }
+      });
+    }
 
-  await db
-    .update(usersTable)
-    .set({ verificationLevel: "orb", isVerified: true })
-    .where(eq(usersTable.id, userId));
+    await trx
+      .update(usersTable)
+      .set({ verificationLevel: "orb", isVerified: true })
+      .where(eq(usersTable.id, userId));
 
-  await db
-    .update(verificationSessionsTable)
-    .set({ status: "complete" })
-    .where(eq(verificationSessionsTable.id, sessionId));
+    await trx
+      .update(verificationSessionsTable)
+      .set({ status: "complete" })
+      .where(eq(verificationSessionsTable.id, sessionId));
+  });
 
   res.json(
     CompleteVerificationResponse.parse({
