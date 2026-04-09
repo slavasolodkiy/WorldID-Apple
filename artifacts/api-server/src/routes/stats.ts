@@ -53,8 +53,8 @@ router.get("/stats/dashboard", async (req, res): Promise<void> => {
     GetDashboardStatsResponse.parse({
       totalValueUsd: Math.round(totalValueUsd * 100) / 100,
       wldBalance,
-      verifiedUsers: verifiedCount[0]?.count ?? 1,
-      grantsClaimed: grantCount[0]?.count ?? 2,
+      verifiedUsers: verifiedCount[0]?.count ?? 0,
+      grantsClaimed: grantCount[0]?.count ?? 0,
       recentTransactionCount: txCountResult[0]?.count ?? 0,
       unreadNotifications: unreadResult[0]?.count ?? 0,
       wldPriceUsd: wldPrice,

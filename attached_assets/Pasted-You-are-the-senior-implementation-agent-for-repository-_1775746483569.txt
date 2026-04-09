@@ -1,0 +1,54 @@
+You are the senior implementation agent for repository: slavasolodkiy/WorldID-Apple (branch main).
+
+Objective
+Harden Apple as the temporary canonical implementation for app-domain correctness:
+- auth/session model
+- verification lifecycle
+- wallet/transaction integrity
+
+Product role of this repo
+Apple is the temporary source of truth for core app-domain behavior until a shared contract layer exists.
+
+Architectural direction
+Improve correctness and consistency without risky rewrites. Keep working behavior stable, reduce ambiguity, and make invariants explicit in code and tests.
+
+Inspect first
+- AGENTS.md
+- reports/final-audit.md
+- docs/reuse-readiness-report.md (if present)
+- auth/session modules (login/logout/session middleware/cookies/tokens)
+- verification lifecycle modules (start/submit/complete/status)
+- wallet/transaction modules (debit/credit/idempotency/locking)
+- API/OpenAPI contract files
+- DB schema/migrations/seed scripts
+- test suites around auth/verification/transactions
+
+Concrete tasks
+1) Make auth/session boundaries explicit and consistent across endpoints.
+2) Ensure verification completion requires real proof + valid session + correct user linkage.
+3) Ensure verification writes are transactional and cannot partially commit.
+4) Strengthen transaction debit correctness under concurrent requests (idempotency + race protection).
+5) Remove residual demo/fallback assumptions from production paths.
+6) Align OpenAPI/auth/verification contract to actual behavior.
+7) Add or improve focused tests for the above invariants.
+8) Update technical docs so they match real code behavior.
+
+Hard constraints (must follow)
+- Do NOT create or modify any CLI file (critical Replit/GitHub export bug).
+- Do NOT create or modify .github/workflows/*.
+- Do NOT perform broad rewrites.
+- Preserve existing public API behavior unless a change is required for correctness; document any such change.
+
+Acceptance criteria
+- Auth, verification, and transaction invariants are enforced in code and covered by tests.
+- No demo logic remains in production-critical paths.
+- API docs match implemented behavior.
+- Typecheck/tests pass using existing local scripts.
+- Final report includes exact files changed, what was fixed, and remaining risks.
+
+Prioritized implementation plan
+1) Validate current invariants and identify weak points.
+2) Fix correctness-critical code paths.
+3) Add/adjust tests for regression protection.
+4) Align OpenAPI/docs with reality.
+5) Run checks and provide a concise evidence-based changelog.

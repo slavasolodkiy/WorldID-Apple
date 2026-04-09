@@ -3,7 +3,7 @@
 **Date**: April 2026  
 **Baseline commit**: da15bbf  
 **Head commit**: post-hardening pass  
-**Test result**: 32/32 passing  
+**Test result**: 40/40 passing  
 
 ---
 
@@ -52,6 +52,8 @@ The Apple (web) reference implementation has been hardened from a functional MVP
 | `grantCount` | Global across all users | Scoped to `req.session.userId` |
 | `unreadResult` | Global across all users | Scoped to `req.session.userId` |
 | `verifiedUsers` | Global (intentional) | Unchanged (product intent) |
+| `grantsClaimed` default | `?? 2` — fake hardcoded non-zero | `?? 0` — real empty state |
+| `verifiedUsers` default | `?? 1` — fake hardcoded non-zero | `?? 0` — real empty state |
 
 ### 5. CI & Migrations
 
@@ -78,7 +80,8 @@ The Apple (web) reference implementation has been hardened from a functional MVP
 | auth.test.ts | 14 | ✅ All pass |
 | verification.test.ts | 9 | ✅ All pass |
 | transactions.test.ts | 9 | ✅ All pass |
-| **Total** | **32** | **✅ Green** |
+| stats.test.ts | 8 | ✅ All pass |
+| **Total** | **40** | **✅ Green** |
 
 ### New tests added (this pass)
 - `returns 401 on verification route without a session`
@@ -88,6 +91,7 @@ The Apple (web) reference implementation has been hardened from a functional MVP
 - `rejects completion with missing proof`
 - `completes a valid verification flow end-to-end` (now validates `sha256(sessionId:proof)` nullifier)
 - `concurrent sends cannot overdraft the wallet (SELECT FOR UPDATE)`
+- Stats test suite (8 tests): 401 guard, dashboard shape, user-scoping, value calculation, token prices, verifiedUsers global semantics
 
 ---
 
@@ -108,7 +112,7 @@ The Apple (web) reference implementation has been hardened from a functional MVP
 
 - [x] `corepack pnpm run typecheck:libs` — passes
 - [x] `corepack pnpm --filter @workspace/world-app run typecheck` — passes
-- [x] `corepack pnpm --filter @workspace/api-server run test` — 31/31 green
+- [x] `corepack pnpm --filter @workspace/api-server run test` — 32/32 green (+ stats suite added)
 - [x] Auth routes in OpenAPI; generated clients/schemas include them
 - [x] Session fixation prevented via `session.regenerate()`
 - [x] Ghost session cleanup in `/auth/me`
