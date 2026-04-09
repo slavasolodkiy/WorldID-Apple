@@ -1,0 +1,81 @@
+You are working in repo: slavasolodkiy/WorldID-Apple
+Branch target: main
+Current baseline commit: da15bbf
+
+Role of this repo in the ecosystem:
+This is the temporary canonical core for product logic. Treat Apple as source of truth for:
+1) auth/session model
+2) verification lifecycle
+3) wallet/transaction integrity
+
+Objective:
+Harden and clarify Apple as a reusable core reference implementation without rewriting working flows. Preserve behavior where correct, reduce inconsistencies, and extract explicit shared abstractions that Android can converge to.
+
+Architectural direction:
+1) Keep route surface stable unless a change is required for correctness.
+2) Move critical business rules into clear service-level boundaries where needed.
+3) Make auth/session, verification lifecycle, and transaction invariants explicit, testable, and documented for cross-repo reuse.
+4) Produce “core contract” artifacts usable by Android convergence work.
+
+Inspect first (in this order):
+1) artifacts/api-server/src/app.ts
+2) artifacts/api-server/src/middlewares/auth.ts
+3) artifacts/api-server/src/routes/auth.ts
+4) artifacts/api-server/src/routes/verification.ts
+5) artifacts/api-server/src/routes/transactions.ts
+6) artifacts/api-server/src/routes/stats.ts
+7) lib/api-spec/openapi.yaml
+8) lib/db/src/schema/*
+9) artifacts/api-server/src/__tests__/*
+10) reports/final-audit.md and AGENTS.md
+
+Concrete tasks:
+1) Validate and harden session/auth boundaries:
+- confirm all protected routes are behind auth middleware
+- ensure cookie/session settings are consistent with environment and logout behavior
+- remove any residual implicit demo assumptions from protected flows
+
+2) Normalize verification lifecycle as explicit state machine:
+- enforce valid transitions and terminal behavior
+- ensure completion requires real linkage: session + current user + proof payload
+- guarantee atomic writes for session/user/verification updates
+
+3) Harden transaction correctness:
+- enforce idempotency path as first-class behavior
+- preserve concurrency safety in debit path and verify invariants around negative balances/double spend
+- ensure error responses are consistent and deterministic for caller retries
+
+4) Reduce inconsistency in stats and mixed semantics:
+- separate user-scoped vs global stats semantics where currently conflated
+- keep API compatibility unless a break is necessary; if breaking, document exact migration notes
+
+5) Create reusable core documentation for ecosystem convergence:
+- add/update docs that define canonical auth/session model, verification lifecycle, transaction invariants, and API/error conventions
+- mark this as “temporary canonical reference for Android convergence”
+
+6) Strengthen readiness controls:
+- ensure typecheck passes
+- run available tests and add missing critical integration tests for auth/verification/transactions
+- if CI is absent, add a minimal workflow for typecheck + tests
+
+Constraints / Do not break:
+1) Do not redesign UI or broad route map.
+2) Do not introduce speculative large rewrites.
+3) Do not remove working behavior unless it is unsafe/incorrect.
+4) Keep changes incremental and explain compatibility impacts.
+5) Keep Apple as canonical reference for now; do not optimize for platform neutrality at the expense of correctness.
+
+Acceptance criteria:
+1) Auth/session boundaries are explicit and consistently enforced.
+2) Verification lifecycle is transactional and transition-safe.
+3) Transaction debit/idempotency/concurrency behavior is proven by tests.
+4) Typecheck passes and tests run green (or failures are clearly root-caused with fixes).
+5) Core reference docs exist and are actionable for Android alignment.
+6) Deliver a concise “Apple core readiness delta” report with before/after and remaining gaps.
+
+Prioritized implementation plan:
+1) Baseline validation + gap list against existing behavior.
+2) Auth/session and verification hardening.
+3) Transaction integrity hardening.
+4) Tests and CI gate updates.
+5) Core reference documentation and handoff notes for Android.

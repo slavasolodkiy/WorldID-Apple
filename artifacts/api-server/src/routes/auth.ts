@@ -26,14 +26,24 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  req.session.userId = user.id;
-  req.session.save((err) => {
-    if (err) {
-      req.log.error({ err }, "Failed to save session");
+  // Regenerate session ID on login to prevent session fixation attacks.
+  // The new session is empty; we set userId then persist it.
+  req.session.regenerate((regenErr) => {
+    if (regenErr) {
+      req.log.error({ err: regenErr }, "Failed to regenerate session");
       res.status(500).json({ error: "Session error" });
       return;
     }
-    res.json({ userId: user.id, username: user.username, displayName: user.displayName });
+
+    req.session.userId = user.id;
+    req.session.save((saveErr) => {
+      if (saveErr) {
+        req.log.error({ err: saveErr }, "Failed to save session");
+        res.status(500).json({ error: "Session error" });
+        return;
+      }
+      res.json({ userId: user.id, username: user.username, displayName: user.displayName });
+    });
   });
 });
 
@@ -57,8 +67,19 @@ router.get("/auth/me", async (req, res): Promise<void> => {
   }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+
   if (!user) {
-    res.json({ userId: null });
+    // The session references a user that no longer exists in the DB (ghost session).
+    // Destroy it so subsequent requests start fresh rather than leaking a stale userId.
+    // Everything (clearCookie + response) is sent inside the callback to avoid
+    // ERR_HTTP_HEADERS_SENT from calling res.json() before the async destroy finishes.
+    req.session.destroy((destroyErr) => {
+      if (destroyErr) {
+        req.log.warn({ err: destroyErr }, "Failed to destroy ghost session");
+      }
+      res.clearCookie("world.sid");
+      res.json({ userId: null });
+    });
     return;
   }
 
